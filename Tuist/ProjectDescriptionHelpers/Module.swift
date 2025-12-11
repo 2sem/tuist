@@ -36,6 +36,7 @@ public enum Module: String, CaseIterable {
     case cas = "TuistCAS"
     case casAnalytics = "TuistCASAnalytics"
     case launchctl = "TuistLaunchctl"
+    case http = "TuistHTTP"
 
     func forceStaticLinking() -> Bool {
         return Environment.forceStaticLinking.getBoolean(default: false)
@@ -70,6 +71,7 @@ public enum Module: String, CaseIterable {
                     .target(name: Module.cache.targetName),
                     .target(name: Module.automation.targetName),
                     .target(name: Module.hasher.targetName),
+                    .target(name: Module.http.targetName),
                     .external(name: "XcodeGraph"),
                     .external(name: "Path"),
                     .external(name: "FileSystem"),
@@ -243,7 +245,7 @@ public enum Module: String, CaseIterable {
         switch self {
         case .analytics, .tuist, .tuistBenchmark, .tuistFixtureGenerator, .projectAutomation,
             .projectDescription,
-            .acceptanceTesting, .simulator, .testing, .process:
+            .acceptanceTesting, .simulator, .testing, .process, .http:
             return nil
         default:
             return "\(rawValue)Tests"
@@ -357,7 +359,8 @@ public enum Module: String, CaseIterable {
         case .plugin:
             moduleTags.append("domain:plugins")
         case .asyncQueue, .simulator, .xcActivityLog, .git, .rootDirectoryLocator,
-             .process, .ci, .cas, .casAnalytics, .launchctl, .xcResultService, .xcodeProjectOrWorkspacePathLocator:
+             .process, .ci, .cas, .casAnalytics, .launchctl, .xcResultService, .xcodeProjectOrWorkspacePathLocator,
+             .http:
             moduleTags.append("domain:infrastructure")
         }
 
@@ -444,6 +447,7 @@ public enum Module: String, CaseIterable {
             case .support:
                 [
                     .target(name: Module.projectDescription.targetName),
+                    .target(name: Module.http.targetName),
                     .external(name: "FileSystem"),
                     .external(name: "SwiftToolsSupport"),
                     .external(name: "AnyCodable"),
@@ -489,6 +493,7 @@ public enum Module: String, CaseIterable {
                     .target(name: Module.cas.targetName),
                     .target(name: Module.launchctl.targetName),
                     .target(name: Module.oidc.targetName),
+                    .target(name: Module.http.targetName),
                     .external(name: "MCP"),
                     .external(name: "FileSystem"),
                     .external(name: "SwiftToolsSupport"),
@@ -620,6 +625,7 @@ public enum Module: String, CaseIterable {
                 [
                     .target(name: Module.support.targetName, condition: .when([.macos])),
                     .target(name: Module.core.targetName, condition: .when([.macos])),
+                    .target(name: Module.http.targetName),
                     .target(name: Module.xcActivityLog.targetName, condition: .when([.macos])),
                     .target(name: Module.xcResultService.targetName, condition: .when([.macos])),
                     .target(name: Module.simulator.targetName),
@@ -652,6 +658,8 @@ public enum Module: String, CaseIterable {
                     .target(name: Module.core.targetName),
                     .target(name: Module.support.targetName),
                     .target(name: Module.hasher.targetName),
+                    .target(name: Module.http.targetName),
+                    .target(name: Module.server.targetName),
                     .external(name: "XcodeGraph"),
                     .external(name: "OpenAPIRuntime"),
                     .external(name: "OpenAPIURLSession"),
@@ -707,6 +715,7 @@ public enum Module: String, CaseIterable {
                     .target(name: Module.server.targetName),
                     .target(name: Module.cache.targetName),
                     .target(name: Module.casAnalytics.targetName),
+                    .target(name: Module.http.targetName),
                     .external(name: "FileSystem"),
                     .external(name: "OpenAPIRuntime"),
                     .external(name: "GRPCCore"),
@@ -727,6 +736,11 @@ public enum Module: String, CaseIterable {
             case .oidc:
                 [
                     .target(name: Module.support.targetName),
+                ]
+            case .http:
+                [
+                    .external(name: "OpenAPIRuntime"),
+                    .external(name: "HTTPTypes"),
                 ]
             }
         if self != .projectDescription, self != .projectAutomation {
@@ -908,6 +922,7 @@ public enum Module: String, CaseIterable {
                     .target(name: Module.testing.targetName),
                     .target(name: Module.core.targetName),
                     .target(name: Module.git.targetName),
+                    .target(name: Module.http.targetName),
                     .external(name: "XcodeGraph"),
                     .external(name: "OpenAPIRuntime"),
                     .external(name: "HTTPTypes"),
@@ -931,6 +946,8 @@ public enum Module: String, CaseIterable {
                     .target(name: Module.hasher.targetName),
                     .target(name: Module.testing.targetName),
                     .target(name: Module.support.targetName),
+                    .target(name: Module.http.targetName),
+                    .target(name: Module.server.targetName),
                     .external(name: "XcodeGraph"),
                     .external(name: "SwiftToolsSupport"),
                     .external(name: "FileSystem"),
@@ -985,6 +1002,7 @@ public enum Module: String, CaseIterable {
                     .target(name: Module.server.targetName),
                     .target(name: Module.cache.targetName),
                     .target(name: Module.casAnalytics.targetName),
+                    .target(name: Module.http.targetName),
                     .external(name: "FileSystem"),
                     .external(name: "OpenAPIRuntime"),
                     .external(name: "GRPCCore"),
@@ -1008,6 +1026,12 @@ public enum Module: String, CaseIterable {
                     .target(name: Module.testing.targetName),
                     .target(name: Module.support.targetName),
                 ]
+            case .http:
+                [
+                    .target(name: Module.testing.targetName),
+                    .external(name: "OpenAPIRuntime"),
+                    .external(name: "HTTPTypes"),
+                ]
             }
         dependencies =
             dependencies + sharedDependencies + [
@@ -1020,7 +1044,7 @@ public enum Module: String, CaseIterable {
 
     private var destinations: Destinations {
         switch self {
-        case .simulator, .server:
+        case .simulator, .server, .http:
             [.mac, .iPhone, .iPad]
         default:
             [.mac]
@@ -1029,7 +1053,7 @@ public enum Module: String, CaseIterable {
 
     private var deploymentTargets: DeploymentTargets {
         switch self {
-        case .simulator, .server: .multiplatform(iOS: "18.0", macOS: "15.0")
+        case .simulator, .server, .http: .multiplatform(iOS: "18.0", macOS: "15.0")
         default: .macOS("15.0")
         }
     }
